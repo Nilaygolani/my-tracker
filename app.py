@@ -8,7 +8,7 @@ HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Matheran</title>
+    <title>Matheran Aa Gaye </title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         /* Full screen center aur background color styling */
@@ -91,7 +91,7 @@ HTML_TEMPLATE = """
         const box = document.getElementById('display-box');
         // Agar user allow nahi karta ya koi aur vajah ho, toh bina error likhe polite message dikhana
         box.className = "please-on";
-        box.innerHTML = "Please allow or turn on your location to proceed.";
+        box.innerHTML = "Location On & Going Matheran.";
     }
     </script>
 </body>
