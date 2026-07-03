@@ -1,84 +1,92 @@
-from flask import Flask, request, render_template_string
-import os
+
+from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
+
+# Yeh HTML/JavaScript frontend hai jo user ko screen par dikhega
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Exact GPS Tracker</title>
+</head>
+<body style="text-align: center; font-family: Arial; margin-top: 50px;">
+
+    <h2>Exact GPS Location Tracker</h2>
+    <p>Neeche diye gaye button par click karke exact location share karein:</p>
+    <button onclick="getLocation()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">Share Live GPS Location</button>
+
+    <p id="status"></p>
+
+    <script>
+    function getLocation() {
+        const status = document.getElementById('status');
+
+        // Check karna ki browser GPS support karta hai ya nahi
+        if (!navigator.geolocation) {
+            status.textContent = 'Aapka browser GPS support nahi karta.';
+            return;
+        }
+
+        status.textContent = 'Locating... Kripya permission Allow karein.';
+
+        // Exact High-Accuracy GPS data nikalna
+        navigator.geolocation.getCurrentPosition(success, error, {
+            enableHighAccuracy: true, // Isse exact GPS use hoga, IP nahi
+            timeout: 5000,
+            maximumAge: 0
+        });
+    }
+
+    function success(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        document.getElementById('status').innerHTML = `<b>Success!</b><br>Lat: ${lat}<br>Lon: ${lon}<br><br>Sending to Python Backend...`;
+
+        # Data ko Python server par bhejna
+        fetch('/receive-location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ latitude: lat, longitude: lon })
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('status').innerHTML += "<br><b>Python Server Saved it!</b>";
+        });
+    }
+
+    function error() {
+        document.getElementById('status').textContent = 'Location access nahi mila ya timeout ho gaya.';
+    }
+    </script>
+</body>
+</html>
+"""
 
 
 @app.route('/')
 def home():
-    # 1. User ka IP address nikalna
-    if request.headers.getlist("X-Forwarded-For"):
-        user_ip = request.headers.getlist("X-Forwarded-For")[0]
-    else:
-        user_ip = request.remote_addr  # Local testing ke liye
+    return render_template_string(HTML_TEMPLATE)
 
-    # 2. Terminal/Render logs mein IP print karna
-    print(f"\n⚡ [TRACKED] Ek user website par aaya! IP Address: {user_ip}\n")
 
-    # 3. Responsive aur Centered HTML Page (Sky Blue Background)
-    html_page = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome</title>
-        <style>
-            /* Pure page ko full screen banana aur background color sky blue karna */
-            body {
-                margin: 0;
-                padding: 0;
-                background-color: #87CEEB; /* Sky Blue Color */
-                font-family: 'Arial', sans-serif;
+# Yeh route JavaScript se exact location coordinates receive karega
+@app.route('/receive-location', methods = ['POST'])
 
-                /* Content ko horizontal aur vertical dono taraf se center karne ke liye flexbox */
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh; /* Viewport Height (Puri screen cover karega) */
-                text-align: center;
-                box-sizing: border-box;
-            }
+def receive_location():
+    data = request.get_json()
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
 
-            /* Container jo mobile par text ko secure aur readable rakhega */
-            .content-box {
-                padding: 20px;
-                max-width: 90%; /* Mobile screens par corners se touch nahi hoga */
-            }
+    print("\n" + "=" * 40)
+    print(f"🔥 EXACT GPS LOCATION RECEIVED IN PYTHON! 🔥")
+    print(f"Latitude : {latitude}")
+    print(f"Longitude: {longitude}")
+    print(f"Google Maps Link: https://www.google.com/maps?q={latitude},{longitude}")
+    print("=" * 40 + "\n")
 
-            h1 {
-                font-size: 2.5rem;
-                color: #ffffff;
-                margin-bottom: 10px;
-                text-shadow: 1px 1px 4px rgba(0,0,0,0.2); /* Sunder text effect */
-            }
-
-            p {
-                font-size: 1.2rem;
-                color: #f0f8ff;
-            }
-
-            /* Choti mobile screens ke liye font size adjust karna */
-            @media (max-width: 480px) {
-                h1 { font-size: 1.8rem; }
-                p { font-size: 1rem; }
-            }
-        </style>
-    </head>
-    <body>
-
-        <div class="content-box">
-            <h1>BSDK AA GYA MADARCHOD.</h1>
-          
-        </div>
-
-    </body>
-    </html>
-    """
-    return render_template_string(html_page)
+    return jsonify({"status": "success"})
 
 
 if __name__ == '__main__':
-    # Render deployment ke liye port configuration secure rakha hai
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True, port=5000)
