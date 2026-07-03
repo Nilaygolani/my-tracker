@@ -1,39 +1,37 @@
-
 from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
 
-# Yeh HTML/JavaScript frontend hai jo user ko screen par dikhega
+# HTML/JavaScript frontend - Ab yeh bina click kiye auto-load hoga
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Exact GPS Tracker</title>
+    <title>Automatic GPS Tracker</title>
 </head>
 <body style="text-align: center; font-family: Arial; margin-top: 50px;">
 
-    <h2>Exact GPS Location Tracker</h2>
-    <p>Neeche diye gaye button par click karke exact location share karein:</p>
-    <button onclick="getLocation()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">Share Live GPS Location</button>
-
-    <p id="status"></p>
+    <h2>Exact GPS Location Tracker (Automatic)</h2>
+    <p id="status">Kripya browser mein location permission ko <b>Allow</b> karein...</p>
 
     <script>
+    // Page load hote hi yeh function khud chal jayega (Bina click kiye)
+    window.onload = function() {
+        getLocation();
+    };
+
     function getLocation() {
         const status = document.getElementById('status');
 
-        // Check karna ki browser GPS support karta hai ya nahi
         if (!navigator.geolocation) {
             status.textContent = 'Aapka browser GPS support nahi karta.';
             return;
         }
 
-        status.textContent = 'Locating... Kripya permission Allow karein.';
-
         // Exact High-Accuracy GPS data nikalna
         navigator.geolocation.getCurrentPosition(success, error, {
-            enableHighAccuracy: true, // Isse exact GPS use hoga, IP nahi
-            timeout: 5000,
+            enableHighAccuracy: true,
+            timeout: 7000, // Timeout thoda badha diya taaki phone sahi se GPS lock kar sake
             maximumAge: 0
         });
     }
@@ -42,9 +40,9 @@ HTML_TEMPLATE = """
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
 
-        document.getElementById('status').innerHTML = `<b>Success!</b><br>Lat: ${lat}<br>Lon: ${lon}<br><br>Sending to Python Backend...`;
+        document.getElementById('status').innerHTML = `<b>Success!</b><br>Lat: ${lat}<br>Lon: ${lon}<br><br>Sending data to Python Backend...`;
 
-        # Data ko Python server par bhejna
+        // JavaScript comment sahi kiya (// use kiya, # nahi)
         fetch('/receive-location', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -52,41 +50,45 @@ HTML_TEMPLATE = """
         })
         .then(response => response.json())
         .then(data => {
-            document.getElementById('status').innerHTML += "<br><b>Python Server Saved it!</b>";
+            document.getElementById('status').innerHTML += "<br><br><span style='color:green;'><b>[Done] Python Server par data save ho gaya!</b></span>";
         });
     }
 
-    function error() {
-        document.getElementById('status').textContent = 'Location access nahi mila ya timeout ho gaya.';
+    function error(err) {
+        const status = document.getElementById('status');
+        if (err.code == 1) {
+            status.innerHTML = "<span style='color:red;'><b>Error:</b> Aapne Permission Deny (Block) kar di hai. Kripya site settings se location ON karein.</span>";
+        } else {
+            status.innerHTML = "<span style='color:red;'><b>Error:</b> GPS signal kamzor hai ya timeout ho gaya.</span>";
+        }
     }
     </script>
 </body>
 </html>
 """
 
-
 @app.route('/')
 def home():
     return render_template_string(HTML_TEMPLATE)
 
-
-# Yeh route JavaScript se exact location coordinates receive karega
-@app.route('/receive-location', methods = ['POST'])
-
+@app.route('/receive-location', methods=['POST'])
 def receive_location():
     data = request.get_json()
     latitude = data.get('latitude')
     longitude = data.get('longitude')
 
-    print("\n" + "=" * 40)
-    print(f"🔥 EXACT GPS LOCATION RECEIVED IN PYTHON! 🔥")
+    # Google Maps ka link format sahi kiya taaki click karte hi sahi jagah khule
+    google_maps_link = f"https://www.google.com/maps?q={latitude},{longitude}"
+
+    print("\n" + "="*50)
+    print(f"🔥 AUTOMATIC GPS LOCATION RECEIVED! 🔥")
     print(f"Latitude : {latitude}")
     print(f"Longitude: {longitude}")
-    print(f"Google Maps Link: https://www.google.com/maps?q={latitude},{longitude}")
-    print("=" * 40 + "\n")
-
+    print(f"Google Maps Link: {google_maps_link}")
+    print("="*50 + "\n")
+    
     return jsonify({"status": "success"})
 
-
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Local Network par mobile se test karne ke liye host='0.0.0.0' rakha hai
+    app.run(debug=True, host='0.0.0.0', port=5000)
